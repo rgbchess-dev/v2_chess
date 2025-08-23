@@ -1,23 +1,24 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Traxler Counter-Attack Training</title>
-<!-- Updated paths for modular structure -->
-<link rel="stylesheet" href="assets/css/chessground.base.css">
-<link rel="stylesheet" href="assets/css/chessground.brown.css">
-<link rel="stylesheet" href="assets/css/chessground.cburnett.css">
-<link rel="stylesheet" href="engine/promotion.css">
-<link rel="stylesheet" href="engine/trainer-styles.css">
-<script src="assets/js/chess.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ruy Lopez Test - Refactored Architecture</title>
+    
+    <!-- Chess assets -->
+    <link rel="stylesheet" href="assets/css/chessground.base.css">
+    <link rel="stylesheet" href="assets/css/chessground.brown.css">
+    <link rel="stylesheet" href="assets/css/chessground.cburnett.css">
+    <link rel="stylesheet" href="engine/promotion.css">
+    <link rel="stylesheet" href="engine/trainer-styles.css">
+    <script src="assets/js/chess.min.js"></script>
 </head>
 <body>
 
 <div class="trainer-container">
     <div class="header">
-        <h1 class="opening-title traxler-theme">⚡ Traxler Counter-Attack Training</h1>
-        <p class="opening-subtitle">Master the Most Dangerous Counter-Attack in Chess</p>
+        <h1 class="opening-title">♔ Ruy Lopez Training - Architecture Test</h1>
+        <p class="opening-subtitle">Testing the refactored engine with a simple opening</p>
     </div>
     
     <div class="controls">
@@ -25,19 +26,19 @@
             <label for="modeSelect">Training Mode:</label>
             <select id="modeSelect">
                 <option value="theory">Theory Lines</option>
-                <option value="exercises">Tactical Exercises</option>
+                <option value="exercises">Exercises</option>
                 <option value="spaced_repetition">🧠 Spaced Repetition</option>
             </select>
             
             <label for="categorySelect" id="categoryLabel">Category:</label>
             <select id="categorySelect">
-                <!-- Dynamically populated -->
+                <!-- Populated by UI Manager -->
             </select>
             
             <label for="colorSelect">Play as:</label>
             <select id="colorSelect">
-                <option value="black" selected>Black (Traxler)</option>
-                <option value="white">White (Defense)</option>
+                <option value="white" selected>White</option>
+                <option value="black">Black</option>
                 <option value="both">Both Sides</option>
             </select>
         </div>
@@ -45,14 +46,14 @@
         <div class="control-group">
             <label for="lineSelect">Current Line:</label>
             <select id="lineSelect">
-                <!-- Dynamically populated -->
+                <!-- Populated by UI Manager -->
             </select>
             <button id="prevLineBtn">← Previous</button>
             <button id="nextLineBtn">Next →</button>
         </div>
         
         <div class="control-group">
-            <button id="hintBtn" style="display: none;">💡 Show Hint</button>
+            <button id="hintBtn">💡 Show Hint</button>
             <button id="resetBtn">🔄 Reset Position</button>
             <button id="flipBtn">↩️ Flip Board</button>
         </div>
@@ -63,14 +64,14 @@
     </div>
     
     <div id="positionInfo" class="position-info">
-        <!-- Dynamically populated -->
+        <!-- Populated by UI Manager -->
     </div>
     
     <div class="challenge-box" id="challengeBox" style="display: none;">
-        <!-- Exercise challenges -->
+        <!-- For exercises -->
     </div>
     
-    <div id="status">Ready to counter-attack!</div>
+    <div id="status">Ready to begin!</div>
     
     <div id="board" class="cg-wrap"></div>
     
@@ -83,7 +84,7 @@
     </div>
 </div>
 
-<!-- Promotion Selector (shared across all trainers) -->
+<!-- Promotion Selector -->
 <div class="promotion-selector" id="promotionSelector">
     <div class="promotion-title">Choose Promotion Piece</div>
     <div class="promotion-pieces">
@@ -99,18 +100,47 @@
 </div>
 
 <script type="module">
-// FIXED: Import both regular data AND spaced repetition data
-import { ChessTrainer } from './engine/trainer-core.js';
-import { traxlerData } from './data/traxler-data.js';
-import { traxlerSpacedRepetitionData } from './data/traxler-spaced-repetition.js';
-
-// FIXED: Pass spaced repetition data as second parameter
-const trainer = new ChessTrainer('board', traxlerData, traxlerSpacedRepetitionData, {
-    autoStart: true,
-    showHints: true
-});
-
-trainer.init();
+    // Import the refactored modules
+    import { ChessTrainer } from './engine/trainer-core.js';
+    import { UIManager } from './engine/ui-manager.js';
+    import { ruyLopezData } from './data/ruy-lopez-data.js';
+    
+    // Initialize the trainer with clean separation
+    const trainer = new ChessTrainer('board', ruyLopezData, {
+        autoStart: true,
+        showHints: true,
+        defaultColor: 'white'  // Start with white so computer plays black
+    });
+    
+    // Initialize UI Manager to handle all DOM updates
+    const uiManager = new UIManager(trainer);
+    
+    // Log events for debugging the architecture
+    console.log('=== RUY LOPEZ ARCHITECTURE TEST ===');
+    console.log('Trainer initialized with events-based architecture');
+    
+    // Add debug event listeners to verify clean separation
+    trainer.addEventListener('correctMove', (e) => {
+        console.log('✅ Event: correctMove', e.detail);
+    });
+    
+    trainer.addEventListener('incorrectMove', (e) => {
+        console.log('❌ Event: incorrectMove', e.detail);
+    });
+    
+    trainer.addEventListener('lineComplete', (e) => {
+        console.log('🎉 Event: lineComplete', e.detail);
+    });
+    
+    // Make trainer available for console debugging
+    window.trainer = trainer;
+    window.uiManager = uiManager;
+    
+    console.log('Test commands available in console:');
+    console.log('- trainer.setMode("exercises")');
+    console.log('- trainer.nextLine()');
+    console.log('- trainer.flipBoard()');
+    console.log('- trainer.getProgress()');
 </script>
 
 </body>

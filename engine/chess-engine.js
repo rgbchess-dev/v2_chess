@@ -1,26 +1,49 @@
 /**
- * Chess Engine Module - Reusable Chessground + Chess.js Integration
- * Place this file in: engine/chess-engine.js
+ * Enhanced Chess Engine Module
+ * File: /engine/chess-engine.js
+ * 
+ * Responsibilities:
+ * - Board visualization (Chessground)
+ * - Line management and validation
+ * - Move sequence tracking
+ * - Computer move automation
  */
 
 import { Chessground } from '../assets/js/chessground.min.js';
 
-class ChessEngine {
+export class ChessEngine {
     constructor(boardElementId, options = {}) {
+        // Core chess components
         this.chess = new Chess();
         this.boardElement = document.getElementById(boardElementId);
         this.board = null;
-        this.playerColor = options.playerColor || 'both'; // 'white', 'black', or 'both'
+        
+        // Player settings
+        this.playerColor = options.playerColor || 'both';
         this.orientation = options.orientation || 'white';
+        
+        // Line management - NEW
+        this.currentLine = null;
+        this.currentMoves = [];
+        this.moveIndex = 0;
+        this.isLineActive = false;
+        
+        // Callbacks
         this.onMoveCallback = null;
-        this.onPromotionCallback = null;
+        this.onLineCompleteCallback = null;
+        this.onComputerMoveCallback = null;
         
         this.initializeBoard();
         this.setupPromotionHandlers();
     }
 
-    // Core board functions
+    // ============================================
+    // CORE BOARD FUNCTIONS (existing)
+    // ============================================
+    
     initializeBoard() {
+        console.log('Initializing board with playerColor:', this.playerColor, 'orientation:', this.orientation);
+        
         this.board = Chessground(this.boardElement, {
             orientation: this.orientation,
             movable: {
@@ -33,7 +56,6 @@ class ChessEngine {
             }
         });
 
-        // Set up move handling
         this.board.set({
             movable: {
                 events: {
@@ -41,9 +63,10 @@ class ChessEngine {
                 }
             }
         });
+        
+        console.log('Board initialized, movable color:', this.getMovableColor());
     }
 
-    // Utility functions
     calculateDests() {
         const dests = new Map();
         this.chess.SQUARES.forEach(s => {
@@ -53,118 +76,6 @@ class ChessEngine {
         return dests;
     }
 
-    getCurrentColor() {
-        return this.chess.turn() === 'w' ? 'white' : 'black';
-    }
-
-    getMovableColor() {
-        if (this.playerColor === 'both') return this.getCurrentColor();
-        if (this.playerColor === this.getCurrentColor()) return this.getCurrentColor();
-        return null; // Player cannot move
-    }
-
-    canPlayerMove() {
-        if (this.playerColor === 'both') return true;
-        return this.getCurrentColor() === this.playerColor;
-    }
-
-    // Move handling
-    handleMove(orig, dest) {
-        if (!this.canPlayerMove()) {
-            console.log('Not your turn!');
-            return;
-        }
-
-        // Check for promotion
-        const piece = this.chess.get(orig);
-        const isPromotion = piece && piece.type === 'p' && 
-                           ((piece.color === 'w' && dest[1] === '8') || 
-                            (piece.color === 'b' && dest[1] === '1'));
-
-        if (isPromotion) {
-            this.showPromotionSelector(orig, dest, piece.color);
-            return;
-        }
-
-        // Try regular move
-        const move = this.chess.move({from: orig, to: dest});
-        
-        if (move === null) {
-            console.log(`Invalid move: ${orig}-${dest}`);
-            return;
-        }
-
-        this.processMove(move);
-    }
-
-    processMove(move) {
-        this.updateBoard();
-        
-        // Call callback if provided
-        if (this.onMoveCallback) {
-            this.onMoveCallback(move, this.chess);
-        }
-    }
-
-    // Promotion handling
-    showPromotionSelector(from, to, color) {
-        const selector = document.getElementById('promotionSelector');
-        
-        // Hide ALL pieces first with !important
-        const allPieces = selector.querySelectorAll('.promotion-piece');
-        allPieces.forEach(piece => {
-            piece.style.setProperty('display', 'none', 'important');
-        });
-        
-        // Show ONLY the correct color pieces
-        const targetClass = color === 'w' ? 'white' : 'black';
-        const correctPieces = selector.querySelectorAll(`.promotion-piece.${targetClass}`);
-        correctPieces.forEach(piece => {
-            piece.style.setProperty('display', 'flex', 'important');
-        });
-        
-        // Store move data
-        selector.dataset.from = from;
-        selector.dataset.to = to;
-        
-        // Show selector
-        selector.style.display = 'block';
-    }
-
-    handlePromotion(promotionPiece) {
-        const selector = document.getElementById('promotionSelector');
-        const from = selector.dataset.from;
-        const to = selector.dataset.to;
-        
-        // Hide selector
-        selector.style.display = 'none';
-        
-        // Make promotion move
-        const move = this.chess.move({
-            from: from,
-            to: to,
-            promotion: promotionPiece
-        });
-        
-        if (move) {
-            this.processMove(move);
-        } else {
-            console.log('Promotion move failed!');
-            this.updateBoard();
-        }
-    }
-
-    setupPromotionHandlers() {
-        // Set up promotion piece click handlers
-        document.querySelectorAll('.promotion-piece').forEach(piece => {
-            piece.addEventListener('click', () => {
-                const promotionPiece = piece.dataset.piece;
-                this.handlePromotion(promotionPiece);
-            });
-        });
-    }
-
-    // Board updates
     updateBoard() {
         this.board.set({
             fen: this.chess.fen(),
@@ -176,30 +87,350 @@ class ChessEngine {
         });
     }
 
-    // Public API methods
+    // ============================================
+    // LINE MANAGEMENT (NEW)
+    // ============================================
+    
+    /**
+     * Load a line for training
+     * @param {Object} lineData - Contains moves array and metadata
+     * @param {string} startingFen - Optional starting position
+     */
+    loadLine(lineData, startingFen = null) {
+        console.log('Loading line:', lineData.name, 'with moves:', lineData.moves);
+        
+        this.currentLine = lineData;
+        this.currentMoves = lineData.moves || [];
+        this.moveIndex = 0;
+        this.isLineActive = true;
+        
+        // Load starting position
+        if (startingFen) {
+            this.chess.load(startingFen);
+        } else {
+            this.chess.reset();
+        }
+        
+        this.updateBoard();
+        
+        // Check if computer should make the first move
+        const shouldPlayFirst = this.shouldComputerMove();
+        console.log('After loading line, should computer move first?', shouldPlayFirst);
+        
+        if (shouldPlayFirst) {
+            console.log('Computer will play first move in 500ms...');
+            setTimeout(() => {
+                console.log('Computer playing first move now');
+                this.playNextComputerMove();
+            }, 500);
+        }
+    }
+    
+    /**
+     * Check if it's computer's turn to move
+     */
+    shouldComputerMove() {
+        if (!this.isLineActive) return false;
+        if (this.moveIndex >= this.currentMoves.length) return false;
+        
+        // If player plays both sides, no automatic moves
+        if (this.playerColor === 'both') {
+            return false;
+        }
+        
+        // Check whose turn it is
+        const isWhiteTurn = this.chess.turn() === 'w';
+        
+        // Determine if it's the player's turn
+        const isPlayerTurn = (this.playerColor === 'white' && isWhiteTurn) || 
+                            (this.playerColor === 'black' && !isWhiteTurn);
+        
+        // Computer should move if it's not the player's turn
+        const shouldMove = !isPlayerTurn;
+        
+        // Debug logging
+        console.log('shouldComputerMove check:', {
+            playerColor: this.playerColor,
+            currentTurn: isWhiteTurn ? 'white' : 'black',
+            isPlayerTurn: isPlayerTurn,
+            shouldMove: shouldMove,
+            moveIndex: this.moveIndex,
+            totalMoves: this.currentMoves.length
+        });
+        
+        return shouldMove;
+    }
+    
+    /**
+     * Play the next computer move in the sequence
+     */
+    playNextComputerMove() {
+        console.log('playNextComputerMove called');
+        
+        if (!this.isLineActive || this.moveIndex >= this.currentMoves.length) {
+            console.log('Cannot play computer move:', {
+                isLineActive: this.isLineActive,
+                moveIndex: this.moveIndex,
+                totalMoves: this.currentMoves.length
+            });
+            return false;
+        }
+        
+        const nextMove = this.currentMoves[this.moveIndex];
+        console.log(`Computer attempting to play move ${this.moveIndex}: ${nextMove}`);
+        
+        const move = this.chess.move(nextMove);
+        
+        if (move) {
+            console.log('Computer successfully played:', move.san);
+            this.moveIndex++;
+            this.updateBoard();
+            
+            // Notify callback
+            if (this.onComputerMoveCallback) {
+                this.onComputerMoveCallback(move);
+            }
+            
+            // Check if line is complete
+            if (this.moveIndex >= this.currentMoves.length) {
+                this.completeCurrentLine();
+            }
+            
+            return true;
+        }
+        
+        console.error(`Failed to make computer move: ${nextMove}`);
+        return false;
+    }
+    
+    /**
+     * Validate a user's move against the expected sequence
+     */
+    validateUserMove(move) {
+        if (!this.isLineActive || this.moveIndex >= this.currentMoves.length) {
+            return { valid: false, expected: null, isComplete: false };
+        }
+        
+        const expectedMove = this.currentMoves[this.moveIndex];
+        const isCorrect = (move.san === expectedMove || move.lan === expectedMove);
+        
+        if (isCorrect) {
+            this.moveIndex++;
+            const isComplete = this.moveIndex >= this.currentMoves.length;
+            const shouldPlayComputer = !isComplete && this.shouldComputerMove();
+            
+            console.log('Move validated:', {
+                moveIndex: this.moveIndex,
+                isComplete: isComplete,
+                shouldPlayComputer: shouldPlayComputer
+            });
+            
+            if (isComplete) {
+                this.completeCurrentLine();
+            }
+            
+            return { 
+                valid: true, 
+                expected: expectedMove,
+                isComplete: isComplete,
+                shouldPlayComputer: shouldPlayComputer
+            };
+        }
+        
+        return { 
+            valid: false, 
+            expected: expectedMove,
+            isComplete: false 
+        };
+    }
+    
+    /**
+     * Handle line completion
+     */
+    completeCurrentLine() {
+        this.isLineActive = false;
+        
+        if (this.onLineCompleteCallback) {
+            this.onLineCompleteCallback({
+                line: this.currentLine,
+                totalMoves: this.currentMoves.length
+            });
+        }
+    }
+    
+    /**
+     * Get current progress in the line
+     */
+    getLineProgress() {
+        if (!this.currentLine) return null;
+        
+        return {
+            current: this.moveIndex,
+            total: this.currentMoves.length,
+            percentage: (this.moveIndex / this.currentMoves.length) * 100,
+            isComplete: this.moveIndex >= this.currentMoves.length,
+            movesPlayed: this.currentMoves.slice(0, this.moveIndex),
+            movesRemaining: this.currentMoves.slice(this.moveIndex)
+        };
+    }
+    
+    /**
+     * Reset current line to beginning
+     */
+    resetCurrentLine() {
+        if (this.currentLine) {
+            this.loadLine(this.currentLine);
+        }
+    }
+    
+    // ============================================
+    // MOVE HANDLING (enhanced)
+    // ============================================
+    
+    handleMove(orig, dest) {
+        if (!this.canPlayerMove()) {
+            this.updateBoard(); // Reset invalid drag
+            return;
+        }
+
+        // Check for promotion
+        const piece = this.chess.get(orig);
+        const isPromotion = piece && piece.type === 'p' &&
+            ((piece.color === 'w' && dest[1] === '8') ||
+             (piece.color === 'b' && dest[1] === '1'));
+
+        if (isPromotion) {
+            this.pendingPromotion = { from: orig, to: dest };
+            this.showPromotionDialog(piece.color);
+            return;
+        }
+
+        // Try to make the move
+        const move = this.chess.move({ from: orig, to: dest });
+        
+        if (move) {
+            // If we have an active line, validate the move
+            if (this.isLineActive) {
+                const validation = this.validateUserMove(move);
+                
+                if (!validation.valid) {
+                    // Wrong move - undo it
+                    this.chess.undo();
+                    this.updateBoard();
+                }
+                
+                // Notify callback with validation result
+                if (this.onMoveCallback) {
+                    this.onMoveCallback(move, validation);
+                }
+                
+                // If move was correct and computer should play
+                if (validation.valid && validation.shouldPlayComputer) {
+                    console.log('User move correct, computer will respond in 800ms');
+                    setTimeout(() => {
+                        console.log('Computer responding to user move');
+                        this.playNextComputerMove();
+                    }, 800);
+                }
+            } else {
+                // Free play mode - just notify the move
+                if (this.onMoveCallback) {
+                    this.onMoveCallback(move, { valid: true, freePlay: true });
+                }
+            }
+            
+            this.updateBoard();
+        } else {
+            this.updateBoard(); // Reset invalid move
+        }
+    }
+
+    // ============================================
+    // PROMOTION HANDLING (existing)
+    // ============================================
+    
+    showPromotionDialog(color) {
+        const selector = document.getElementById('promotionSelector');
+        if (!selector) return;
+
+        selector.style.display = 'block';
+        
+        // Show only pieces of the correct color
+        selector.querySelectorAll('.promotion-piece').forEach(piece => {
+            const isWhite = piece.classList.contains('white');
+            piece.style.display = (color === 'w' && isWhite) || (color === 'b' && !isWhite) ? 'block' : 'none';
+        });
+    }
+
+    hidePromotionDialog() {
+        const selector = document.getElementById('promotionSelector');
+        if (selector) {
+            selector.style.display = 'none';
+        }
+    }
+
+    handlePromotion(promotionPiece) {
+        if (!this.pendingPromotion) return;
+
+        const move = this.chess.move({
+            from: this.pendingPromotion.from,
+            to: this.pendingPromotion.to,
+            promotion: promotionPiece
+        });
+
+        this.pendingPromotion = null;
+        this.hidePromotionDialog();
+
+        if (move && this.onMoveCallback) {
+            const validation = this.isLineActive ? this.validateUserMove(move) : { valid: true, freePlay: true };
+            this.onMoveCallback(move, validation);
+            
+            if (validation.valid && validation.shouldPlayComputer) {
+                setTimeout(() => this.playNextComputerMove(), 800);
+            }
+        }
+
+        this.updateBoard();
+    }
+
+    setupPromotionHandlers() {
+        document.querySelectorAll('.promotion-piece').forEach(piece => {
+            piece.addEventListener('click', () => {
+                const promotionPiece = piece.dataset.piece;
+                this.handlePromotion(promotionPiece);
+            });
+        });
+    }
+
+    // ============================================
+    // UTILITIES (existing + enhanced)
+    // ============================================
+    
+    getCurrentColor() {
+        return this.chess.turn() === 'w' ? 'white' : 'black';
+    }
+
+    getMovableColor() {
+        if (this.playerColor === 'both') return this.getCurrentColor();
+        if (this.playerColor === this.getCurrentColor()) return this.getCurrentColor();
+        return null;
+    }
+
+    canPlayerMove() {
+        if (this.playerColor === 'both') return true;
+        return this.getCurrentColor() === this.playerColor;
+    }
+
     loadPosition(fen) {
+        this.isLineActive = false; // Free play when loading arbitrary position
+        this.currentLine = null;
+        
         if (fen) {
             this.chess.load(fen);
         } else {
             this.chess.reset();
         }
         this.updateBoard();
-    }
-
-    makeMove(move) {
-        const result = this.chess.move(move);
-        if (result) {
-            this.updateBoard();
-        }
-        return result;
-    }
-
-    undoMove() {
-        const move = this.chess.undo();
-        if (move) {
-            this.updateBoard();
-        }
-        return move;
     }
 
     getGameState() {
@@ -211,17 +442,22 @@ class ChessEngine {
             inStalemate: this.chess.in_stalemate(),
             inDraw: this.chess.in_draw(),
             gameOver: this.chess.game_over(),
-            history: this.chess.history()
+            pgn: this.chess.pgn(),
+            history: this.chess.history(),
+            lineProgress: this.getLineProgress()
         };
     }
 
-    getMoveHistory() {
-        return this.chess.history();
-    }
-
     setPlayerColor(color) {
+        console.log('Chess engine playerColor changed from', this.playerColor, 'to', color);
         this.playerColor = color;
         this.updateBoard();
+        
+        // If we have an active line and it's now computer's turn, play
+        if (this.isLineActive && this.shouldComputerMove()) {
+            console.log('After color change, computer should play');
+            setTimeout(() => this.playNextComputerMove(), 500);
+        }
     }
 
     setOrientation(orientation) {
@@ -235,35 +471,32 @@ class ChessEngine {
         return newOrientation;
     }
 
-    // Event handlers
+    // ============================================
+    // EVENT CALLBACKS
+    // ============================================
+    
     onMove(callback) {
         this.onMoveCallback = callback;
     }
 
-    onPromotion(callback) {
-        this.onPromotionCallback = callback;
+    onLineComplete(callback) {
+        this.onLineCompleteCallback = callback;
     }
 
-    // Testing/debug methods
-    isValidMove(from, to, promotion = null) {
-        const move = this.chess.move({from, to, promotion}, {dry_run: true});
-        return move !== null;
+    onComputerMove(callback) {
+        this.onComputerMoveCallback = callback;
     }
 
-    getValidMoves(square = null) {
-        if (square) {
-            return this.chess.moves({square, verbose: true});
-        }
-        return this.chess.moves({verbose: true});
-    }
-
-    // Destroy
+    // ============================================
+    // CLEANUP
+    // ============================================
+    
     destroy() {
-        // Clean up event listeners if needed
         this.board = null;
         this.chess = null;
+        this.currentLine = null;
+        this.onMoveCallback = null;
+        this.onLineCompleteCallback = null;
+        this.onComputerMoveCallback = null;
     }
 }
-
-// Export for use in trainers
-export { ChessEngine };
