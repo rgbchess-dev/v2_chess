@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Traxler Counter-Attack Training</title>
+<!-- Updated paths for modular structure -->
+<link rel="stylesheet" href="assets/css/chessground.base.css">
+<link rel="stylesheet" href="assets/css/chessground.brown.css">
+<link rel="stylesheet" href="assets/css/chessground.cburnett.css">
+<link rel="stylesheet" href="engine/promotion.css">
+<link rel="stylesheet" href="engine/trainer-styles.css">
+<script src="assets/js/chess.min.js"></script>
+</head>
+<body>
+
+<div class="trainer-container">
+    <div class="header">
+        <h1 class="opening-title traxler-theme">⚡ Traxler Counter-Attack Training</h1>
+        <p class="opening-subtitle">Master the Most Dangerous Counter-Attack in Chess</p>
+    </div>
+    
+    <div class="controls">
+        <div class="control-group">
+            <label for="modeSelect">Training Mode:</label>
+            <select id="modeSelect">
+                <option value="theory">Theory Lines</option>
+                <option value="exercises">Tactical Exercises</option>
+                <option value="spaced_repetition">🧠 Spaced Repetition</option>
+            </select>
+            
+            <label for="categorySelect" id="categoryLabel">Category:</label>
+            <select id="categorySelect">
+                <!-- Dynamically populated -->
+            </select>
+            
+            <label for="colorSelect">Play as:</label>
+            <select id="colorSelect">
+                <option value="black" selected>Black (Traxler)</option>
+                <option value="white">White (Defense)</option>
+                <option value="both">Both Sides</option>
+            </select>
+        </div>
+        
+        <div class="control-group">
+            <label for="lineSelect">Current Line:</label>
+            <select id="lineSelect">
+                <!-- Dynamically populated -->
+            </select>
+            <button id="prevLineBtn">← Previous</button>
+            <button id="nextLineBtn">Next →</button>
+        </div>
+        
+        <div class="control-group">
+            <button id="hintBtn" style="display: none;">💡 Show Hint</button>
+            <button id="resetBtn">🔄 Reset Position</button>
+            <button id="flipBtn">↩️ Flip Board</button>
+        </div>
+        
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+    </div>
+    
+    <div id="positionInfo" class="position-info">
+        <!-- Dynamically populated -->
+    </div>
+    
+    <div class="challenge-box" id="challengeBox" style="display: none;">
+        <!-- Exercise challenges -->
+    </div>
+    
+    <div id="status">Ready to counter-attack!</div>
+    
+    <div id="board" class="cg-wrap"></div>
+    
+    <div class="success-message" id="successMessage"></div>
+    <div class="error-message" id="errorMessage"></div>
+    
+    <div id="moves">
+        <h3>📝 Move History</h3>
+        <div id="movesList"></div>
+    </div>
+</div>
+
+<!-- Promotion Selector (shared across all trainers) -->
+<div class="promotion-selector" id="promotionSelector">
+    <div class="promotion-title">Choose Promotion Piece</div>
+    <div class="promotion-pieces">
+        <div class="promotion-piece white" data-piece="q" title="Queen"></div>
+        <div class="promotion-piece white" data-piece="r" title="Rook"></div>
+        <div class="promotion-piece white" data-piece="b" title="Bishop"></div>
+        <div class="promotion-piece white" data-piece="n" title="Knight"></div>
+        <div class="promotion-piece black" data-piece="q" title="Queen"></div>
+        <div class="promotion-piece black" data-piece="r" title="Rook"></div>
+        <div class="promotion-piece black" data-piece="b" title="Bishop"></div>
+        <div class="promotion-piece black" data-piece="n" title="Knight"></div>
+    </div>
+</div>
+
+<script type="module">
+// FIXED: Import both regular data AND spaced repetition data
+import { ChessTrainer } from './engine/trainer-core.js';
+import { traxlerData } from './data/traxler-data.js';
+import { traxlerSpacedRepetitionData } from './data/traxler-spaced-repetition.js';
+
+// FIXED: Pass spaced repetition data as second parameter
+const trainer = new ChessTrainer('board', traxlerData, traxlerSpacedRepetitionData, {
+    autoStart: true,
+    showHints: true
+});
+
+trainer.init();
+</script>
+
+</body>
+</html>
