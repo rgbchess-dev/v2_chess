@@ -148,9 +148,7 @@ export class UIManager {
         // Color selection
         if (this.elements.colorSelect) {
             this.elements.colorSelect.addEventListener('change', () => {
-                const newColor = this.elements.colorSelect.value;
-                console.log('UI: Color selection changed to:', newColor);
-                this.trainer.setPlayerColor(newColor);
+                this.trainer.setPlayerColor(this.elements.colorSelect.value);
             });
         }
         
@@ -195,12 +193,6 @@ export class UIManager {
         // Update mode select
         if (this.elements.modeSelect) {
             this.elements.modeSelect.value = data.mode;
-        }
-        
-        // Sync color select with trainer's default
-        if (this.elements.colorSelect && data.options && data.options.defaultColor) {
-            this.elements.colorSelect.value = data.options.defaultColor;
-            console.log('UI: Synced color select to:', data.options.defaultColor);
         }
         
         // Populate categories

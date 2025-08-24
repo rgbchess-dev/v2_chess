@@ -42,13 +42,11 @@ export class ChessTrainer extends EventTarget {
     }
     
     init() {
-        // Initialize chess engine with the correct player color
+        // Initialize chess engine
         this.chessEngine = new ChessEngine(this.boardId, {
             playerColor: this.options.defaultColor,
             orientation: this.courseData.orientation || this.options.defaultColor
         });
-        
-        console.log('Trainer initialized with playerColor:', this.options.defaultColor);
         
         // Set up chess engine callbacks
         this.chessEngine.onMove((move, validation) => this.handleMove(move, validation));
@@ -68,8 +66,7 @@ export class ChessTrainer extends EventTarget {
         this.emit('initialized', {
             courseData: this.courseData,
             mode: this.currentMode,
-            category: this.currentCategory,
-            options: this.options  // Include options so UI can sync
+            category: this.currentCategory
         });
         
         // Load first position

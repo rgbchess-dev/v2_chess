@@ -37,9 +37,9 @@
             
             <label for="colorSelect">Play as:</label>
             <select id="colorSelect">
-                <option value="white" selected>White</option>
+                <option value="white">White</option>
                 <option value="black">Black</option>
-                <option value="both">Both Sides</option>
+                <option value="both" selected>Both Sides</option>
             </select>
         </div>
         
@@ -109,7 +109,7 @@
     const trainer = new ChessTrainer('board', ruyLopezData, {
         autoStart: true,
         showHints: true,
-        defaultColor: 'white'  // Start with white so computer plays black
+        defaultColor: 'both'
     });
     
     // Initialize UI Manager to handle all DOM updates
